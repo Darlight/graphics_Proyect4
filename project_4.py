@@ -7,11 +7,11 @@ Carnet 18029
 Proyecto final
 
 """
-
 import pygame
 import numpy
-import glm
+import glm  
 import pyassimp
+from math import sin
 
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
@@ -33,8 +33,8 @@ out float intensity;
 out vec2 vertexTexcoords;
 
 void main()
-{
-  vertexTexcoords = texcoords;
+{	
+	vertexTexcoords = texcoords;
   intensity = dot(normal, normalize(light));
   gl_Position = theMatrix * vec4(position.x, position.y, position.z, 1.0);
 }
@@ -53,8 +53,67 @@ uniform vec4 ambient;
 
 void main()
 {
+  fragColor = ambient + texture(tex, vertexTexcoords) * intensity;
+}
+"""
+
+
+rgb_shader = """
+#version 460
+layout(location = 0) out vec4 fragColor;
+
+in float intensity;
+in vec2 vertexTexcoords;
+
+uniform sampler2D tex;
+uniform vec4 diffuse;
+uniform vec4 ambient;
+
+void main()
+{
 
   fragColor = ambient + diffuse * texture(tex, vertexTexcoords) * intensity;
+}
+"""
+
+rainbow_shader = """
+#version 460
+layout(location = 0) out vec4 fragColor;
+
+in float intensity;
+in vec2 vertexTexcoords;
+in vec3 v3Position;
+
+uniform sampler2D tex;
+uniform vec4 diffuse;
+uniform vec4 ambient;
+
+void main()
+{
+	float bright = floor(mod(v3Position.x*10.0, 2.0)+.2) + floor(mod(v3Position.y*1.0, 1.0)+.5) + floor(mod(v3Position.z*0.0, 10.0)+.5);
+  	fragColor = mod(bright, 6.0) > .8 ? vec4(1.0, 0.0, 0.0, 9.0) : vec4(1.0, 3.0, 2.0, 0.5);
+}
+"""
+
+time_shader = """
+#version 460
+layout(location = 0) out vec4 fragColor;
+in float frame_time; 
+
+in float intensity;
+in vec2 vertexTexcoords;
+in vec3 v3Position;
+
+uniform sampler2D tex;
+uniform vec4 diffuse;
+uniform vec4 ambient;
+
+void main()
+{
+	float time_shader = frame_time*15.5;
+	float bright = floor(mod(v3Position.z*time_shader, 0.5)+frame_time) + floor(mod(v3Position.y*time_shader, 0.5)+frame_time) + floor(mod(v3Position.x*frame_time, 25.0));
+    vec4 color = mod(bright, 2.0) > .8 ? vec4(0.0, 1.5, 1.5, 9.0) : vec4(10.0, 0.0, 0.0, 0.0);
+  	fragColor = color * intensity;
 }
 """
 
@@ -63,10 +122,13 @@ shader = compileProgram(
     compileShader(fragment_shader, GL_FRAGMENT_SHADER)
 )
 
-scene = pyassimp.load('./knight/knight.obj')
 
-texture_surface = pygame.image.load('./knight/armor.jpg')
-texture_data = pygame.image.tostring(texture_surface, 'RGB')
+
+
+scene = pyassimp.load('./Wario/wario.obj')
+
+texture_surface = pygame.image.load('./Wario/wario_tex.png')
+texture_data = pygame.image.tostring(texture_surface, 'RGB',1)
 width = texture_surface.get_width()
 height = texture_surface.get_height()
 
@@ -116,17 +178,17 @@ def glize(node):
 
     glUniform3f(
       glGetUniformLocation(shader, "light"),
-      -100, 300, 0
+      -50, 200, 0
     )
 
     glUniform4f(
       glGetUniformLocation(shader, "diffuse"),
-      0.7, 0.2, 0, 1
+      0.7, 0.2, 0.3, 1
     )
 
     glUniform4f(
       glGetUniformLocation(shader, "ambient"),
-      0.2, 0.2, 0.2, 1
+      0.2, 0.2, 0.2, 0.005
     )
 
 
@@ -138,13 +200,13 @@ def glize(node):
 
 i = glm.mat4()
 
-def createTheMatrix(counter):
-  translate = glm.translate(i, glm.vec3(0, 0, 0))
+def createTheMatrix(counter,x,y):
+  translate = glm.translate(i, glm.vec3(0, -2, 0))
   rotate = glm.rotate(i, glm.radians(counter), glm.vec3(0, 1, 0))
-  scale = glm.scale(i, glm.vec3(1, 1, 1))
+  scale = glm.scale(i, glm.vec3(1,1,1))
 
   model = translate * rotate * scale
-  view = glm.lookAt(glm.vec3(0, 0, 200), glm.vec3(0, 0, 0), glm.vec3(0, 1, 0))
+  view = glm.lookAt(glm.vec3(0+ x, 0 + x, 8 + y ), glm.vec3(0 , 0, 0), glm.vec3(0, 1, 0))
   projection = glm.perspective(glm.radians(45), 800/600, 0.1, 1000)
 
   return projection * view * model
@@ -153,15 +215,20 @@ glViewport(0, 0, 800, 600)
 
 glEnable(GL_DEPTH_TEST)
 
+
+#Initiating variables
 running = True
 counter = 0
+frame_time = 0
+x = 0
+y = 0
 while running:
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-  glClearColor(0.5, 1.0, 0.5, 1.0)
+  glClearColor(0.6, 0.2, 0.6, 1.0)
 
   glUseProgram(shader)
 
-  theMatrix = createTheMatrix(counter)
+  theMatrix = createTheMatrix(counter,x,y)
 
   theMatrixLocation = glGetUniformLocation(shader, 'theMatrix')
 
@@ -172,9 +239,7 @@ while running:
     glm.value_ptr(theMatrix)
   )
 
-  # glDrawArrays(GL_TRIANGLES, 0, 3)
-  # glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, None)
-
+  frame_time += 0.01
   glize(scene.rootnode)
 
   pygame.display.flip()
@@ -183,11 +248,45 @@ while running:
     if event.type == pygame.QUIT:
       running = False
     elif event.type == pygame.KEYDOWN:
-      print('keydown')
       if event.key == pygame.K_w:
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
       if event.key == pygame.K_f:
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+      if event.key == pygame.K_1:
+        shader = compileProgram(
+            compileShader(vertex_shader, GL_VERTEX_SHADER),
+            compileShader(fragment_shader, GL_FRAGMENT_SHADER)
+        )
+        glUseProgram(shader)
+      if event.key == pygame.K_2:
+        shader = compileProgram(
+            compileShader(vertex_shader, GL_VERTEX_SHADER),
+            compileShader(rgb_shader, GL_FRAGMENT_SHADER)
+        )
+        glUseProgram(shader)
+      if event.key == pygame.K_3:
+        shader = compileProgram(
+            compileShader(vertex_shader, GL_VERTEX_SHADER),
+            compileShader(rainbow_shader, GL_FRAGMENT_SHADER)
+        )
+        glUseProgram(shader)
+      if event.key == pygame.K_4:
+        shader = compileProgram(
+            compileShader(vertex_shader, GL_VERTEX_SHADER),
+            compileShader(time_shader, GL_FRAGMENT_SHADER)
+        )
+        glUseProgram(shader)
+      if event.key == pygame.K_LEFT and x < 5:
+        x += 1
+      if event.key == pygame.K_RIGHT and x > -5:
+        x -= 1
+
+    elif event.type == pygame.MOUSEWHEEL:
+      if event.y == -1:
+        y += 1
+      if event.y == 1:
+        y -= 1
+
 
 
 

@@ -178,7 +178,7 @@ while running:
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
       if event.key == pygame.K_f:
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
-      if event.key == pygame.K_
+      #if event.key == pygame.K_
 
 
 

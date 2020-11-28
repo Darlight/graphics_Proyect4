@@ -1,10 +1,11 @@
 """
+Universidad del Valle de Guatemala
+
 
 """
 
 import pygame
 import numpy
-
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 
