@@ -28,15 +28,18 @@ layout (location = 2) in vec2 texcoords;
 
 uniform mat4 theMatrix;
 uniform vec3 light;
+uniform float frame_time;
 
 out float intensity;
 out vec2 vertexTexcoords;
+out float time_frame;
 
 void main()
 {	
 	vertexTexcoords = texcoords;
   intensity = dot(normal, normalize(light));
   gl_Position = theMatrix * vec4(position.x, position.y, position.z, 1.0);
+  time_frame = frame_time;
 }
 """
 
@@ -76,29 +79,32 @@ void main()
 }
 """
 
-rainbow_shader = """
-#version 460
-layout(location = 0) out vec4 fragColor;
-
-in float intensity;
-in vec2 vertexTexcoords;
-in vec3 v3Position;
-
-uniform sampler2D tex;
-uniform vec4 diffuse;
-uniform vec4 ambient;
-
-void main()
-{
-	float bright = floor(mod(v3Position.x*10.0, 2.0)+.2) + floor(mod(v3Position.y*1.0, 1.0)+.5) + floor(mod(v3Position.z*0.0, 10.0)+.5);
-  	fragColor = mod(bright, 6.0) > .8 ? vec4(1.0, 0.0, 0.0, 9.0) : vec4(1.0, 3.0, 2.0, 0.5);
-}
-"""
-
 time_shader = """
 #version 460
 layout(location = 0) out vec4 fragColor;
-in float frame_time; 
+
+in float intensity;
+in vec2 vertexTexcoords;
+in vec3 v3Position;
+in float time_frame;
+
+uniform sampler2D tex;
+uniform vec4 diffuse;
+uniform vec4 ambient;
+
+void main()
+{
+	
+float time_shader = time_frame*15.5;
+	float bright = floor(mod(v3Position.x*time_shader, 1.0)+time_frame) + floor(mod(v3Position.y*time_shader, 1.0)+time_frame) + floor(mod(v3Position.z*time_shader, 1.0)+time_frame);
+    vec4 color = mod(bright, 2.0) > .5 ? vec4(0.0, 1.5, 1.5, 1.0) : vec4(1.0, 1.0, 1.0, 1.0);
+  	fragColor = color * intensity;
+}
+"""
+
+red_shader = """
+#version 460
+layout(location = 0) out vec4 fragColor;
 
 in float intensity;
 in vec2 vertexTexcoords;
@@ -110,8 +116,8 @@ uniform vec4 ambient;
 
 void main()
 {
-	float time_shader = frame_time*15.5;
-	float bright = floor(mod(v3Position.z*time_shader, 0.5)+frame_time) + floor(mod(v3Position.y*time_shader, 0.5)+frame_time) + floor(mod(v3Position.x*frame_time, 25.0));
+	float time_shader = 0.01*15.5;
+	float bright = floor(mod(v3Position.z*time_shader, 0.5)+0.01) + floor(mod(v3Position.y*time_shader, 0.5)+0.01) + floor(mod(v3Position.x*0.01, 25.0));
     vec4 color = mod(bright, 2.0) > .8 ? vec4(0.0, 1.5, 1.5, 9.0) : vec4(10.0, 0.0, 0.0, 0.0);
   	fragColor = color * intensity;
 }
@@ -178,7 +184,7 @@ def glize(node):
 
     glUniform3f(
       glGetUniformLocation(shader, "light"),
-      -50, 200, 0
+      -100, 200, 300
     )
 
     glUniform4f(
@@ -188,7 +194,7 @@ def glize(node):
 
     glUniform4f(
       glGetUniformLocation(shader, "ambient"),
-      0.2, 0.2, 0.2, 0.005
+      0.2, 0.2, 0.2, 1
     )
 
 
@@ -239,7 +245,11 @@ while running:
     glm.value_ptr(theMatrix)
   )
 
-  frame_time += 0.01
+  frame_time += 0.04
+  
+  glUniform1f(
+		glGetUniformLocation(shader, 'frame_time'),
+		frame_time)
   glize(scene.rootnode)
 
   pygame.display.flip()
@@ -267,13 +277,13 @@ while running:
       if event.key == pygame.K_3:
         shader = compileProgram(
             compileShader(vertex_shader, GL_VERTEX_SHADER),
-            compileShader(rainbow_shader, GL_FRAGMENT_SHADER)
+            compileShader(time_shader, GL_FRAGMENT_SHADER)
         )
         glUseProgram(shader)
       if event.key == pygame.K_4:
         shader = compileProgram(
             compileShader(vertex_shader, GL_VERTEX_SHADER),
-            compileShader(time_shader, GL_FRAGMENT_SHADER)
+            compileShader(red_shader, GL_FRAGMENT_SHADER)
         )
         glUseProgram(shader)
       if event.key == pygame.K_LEFT and x < 5:
